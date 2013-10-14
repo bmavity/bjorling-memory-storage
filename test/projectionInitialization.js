@@ -3,11 +3,10 @@ var storage = require('../')
 	, eb = require('./eb')
 
 describe('bjorling memory projection storage, when properly initialized', function() {
-	var db
-		, projectionStorage = null
+	var projectionStorage = null
 
 	before(function(done) {
-		var s = storage(dbPath)
+		var s = storage()
 		s('aProjection', 'aKey', eb(done, function(p) {
 			projectionStorage = p
 			done()
@@ -23,7 +22,7 @@ describe('bjorling memory projection storage, when initialized without a project
 	var thrownError
 
 	before(function(done) {
-		s = storage(dbPath)
+		var s = storage()
 		s(null, 'key', function(err, p) {
 			thrownError = err
 			done()
@@ -43,7 +42,7 @@ describe('bjorling memory projection storage, when initialized without a key', f
 	var thrownError
 
 	before(function(done) {
-		s = storage(dbPath)
+		var s = storage()
 		s('projection', null, function(err, p) {
 			thrownError = err
 			done()

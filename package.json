@@ -13,6 +13,7 @@
   ],
   "description": "In memory storage for Bjorling",
   "dependencies": {
+  	"errno": "~0.1.0"
   },
   "devDependencies": {
   	"bjorling": "0.x.x"

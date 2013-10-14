@@ -1,3 +1,4 @@
+var errors = require('./errors')
 
 function BjorlingMemoryStorage() {
 	if(!(this instanceof BjorlingMemoryStorage)) {
@@ -88,7 +89,6 @@ BjorlingLevelProjectionStorage.prototype.get = function(queryObj, cb) {
 		var result = null
 			, hasMultiple = false
 
-console.log(q)
 		db.query(q)
 			.on('data', function(r) {
 				hasMultiple = !!result
@@ -132,24 +132,36 @@ function getArgs(arrayLike) {
 	return Array.prototype.slice.call(arrayLike, 0)
 }
 
-module.exports = function(location, key) {
-	var s = new LevelStorage(location, key)
+function BjorlingMemoryProjectionStorage(projectionName, key) {
+	if(!projectionName) {
+		throw new errors.ProjectionInitializationError('Bjorling Memory Projection Storage requires a projection name to be initialized.')
+	}
+	if(!key) {
+		throw new errors.ProjectionInitializationError('Bjorling Memory Projection Storage requires a key to be initialized.')
+	}
+}
+
+module.exports = function() {
+	var s = new BjorlingMemoryStorage()
+	function createProjection(projectionName, key, cb) {
+		var err = null
+			, result
+		try {
+			result = new BjorlingMemoryProjectionStorage(projectionName, key)
+		}
+		catch(ex) {
+			err = ex
+		}
+
+		setImmediate(function() {
+			cb(err, result)
+		})
+	}
+	return createProjection
+}
+/*
 		, __bjorling = s._db.sublevel('__bjorling')
 		, a = function(projectionName, key, cb) {
-				if(!projectionName) {
-					var err = new errors.ProjectionInitializationError('Bjorling Level Projection Storage requires a projection name to be initialized.')
-					if(cb) {
-						return cb(err)
-					}
-					throw err
-				}
-				if(!key) {
-					var err = new errors.ProjectionInitializationError('Bjorling Level Projection Storage requires a key to be initialized.')
-					if(cb) {
-						return cb(err)
-					}
-					throw err
-				}
 
 				var db = s._db.sublevel(projectionName)
 					, p = new BjorlingLevelProjectionStorage(db, projectionName, key)
@@ -173,3 +185,4 @@ module.exports = function(location, key) {
 	}
 	return a
 }
+*/

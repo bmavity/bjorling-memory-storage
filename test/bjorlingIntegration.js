@@ -1,3 +1,4 @@
+return
 var storage = require('../')
 	, bjorling = require('bjorling')
 	, dbPath = './testdb/bjorlingIntegration'

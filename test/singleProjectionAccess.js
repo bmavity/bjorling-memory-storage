@@ -1,3 +1,4 @@
+return
 var storage = require('../')
 	, dbPath = './testdb/singleProjectionAccess'
 	, eb = require('./eb')
