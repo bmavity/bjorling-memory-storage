@@ -1,62 +1,56 @@
 var errors = require('./errors')
 
-function BjorlingMemoryStorage() {
-	if(!(this instanceof BjorlingMemoryStorage)) {
-		return new BjorlingMemoryStorage()
-	}
-
-}
-
 function isUndefined(val) {
 	return typeof(val) === 'undefined'
 }
 
-function BjorlingLevelProjectionStorage(db, projectionName, key) {
-	this._db = levelQuery(db)
-	this._db.query.use(engine())
-
-	this._key = key
-	this._projectionName = projectionName
-
-	this._indexes = []
+function BjorlingMemoryStorage() {
+	if(!(this instanceof BjorlingMemoryStorage)) {
+		return new BjorlingMemoryStorage()
+	}
 }
 
-BjorlingLevelProjectionStorage.prototype.getKeyValue = function(obj) {
-	var key = this._key
-		, parts = Array.isArray(key) ? key.map(getVal) : [getVal(key)]
-
-	function getVal(keyPart) {
-		return obj[keyPart]
+function BjorlingMemoryProjectionStorage(projectionName, key) {
+	if(!projectionName) {
+		throw new errors.ProjectionInitializationError('Bjorling Memory Projection Storage requires a projection name to be initialized.')
+	}
+	if(!key) {
+		throw new errors.ProjectionInitializationError('Bjorling Memory Projection Storage requires a key to be initialized.')
 	}
 
-	if(parts.some(isUndefined)) return null
-
-	return parts.join('')
+	this._key = key
+	this._items = {}
+	this._indexes = []
+	this._indexMaps = {}
 }
 
-BjorlingLevelProjectionStorage.prototype.get = function(queryObj, cb) {
-	var db = this._db
-		, keyVal = this.getKeyValue(queryObj)
+BjorlingMemoryProjectionStorage.prototype.addIndex = function(index, cb) {
+	this._indexes.push(index)
+	this._indexMaps[index] = {}
+	setImmediate(function() {
+		cb && cb()
+	})
+}
 
-	function respond(err, result) {
-		if(err) {
-			if(err.notFound) return cb(null, null)
-			return cb(err)
-		}
-		cb(null, result)
+BjorlingMemoryProjectionStorage.prototype.get = function(queryObj, cb) {
+	var keyVal = this.getKeyValue(queryObj)
+		, items = this._items
+		, item = items[keyVal]
+		, indexes = this._indexes
+		, maps = this._indexMaps
+
+	function respond(result) {
+		setImmediate(function() {
+			cb(null, result)
+		})
 	}
 
 	if(keyVal) {
-		db.get(keyVal, respond)
-		return
+		return respond(item || null)
 	}
 
 	function getIndexVal(index) {
 		var val = queryObj[index]
-		//BLM: Don't look here
-		if(!val && index === 'roundId') {
-			val = queryObj['batchId']
-		}
 		return {
 			name: index
 		, val: val
@@ -72,73 +66,73 @@ BjorlingLevelProjectionStorage.prototype.get = function(queryObj, cb) {
 				.filter(hasIndexVal)
 
 	if(!indexVals.length) {
-		return setImmediate(function() {
-			cb(null, null)
-		})
+		return respond(null)
 	}
 
-	var q = {}
-
-	function createQueryObj(map) {
-		var qObj = {}
-		qObj[map.name] = map.val
-		return qObj
-	}
-
-	function performQuery() {
-		var result = null
-			, hasMultiple = false
-
-		db.query(q)
-			.on('data', function(r) {
-				hasMultiple = !!result
-				result = r
-			})
-			.on('stats', function(stats) {
-				console.log(stats)
-			})
-			.on('end', function() {
-				if(hasMultiple) return cb(new Error('multiple results'))
-				cb(null, result)
-			})
-			.on('error', cb)
-	}
-
-	if(indexVals.length === 1) {
-		q = createQueryObj(indexVals[0])
-	} else {
-		q.$and = indexVals.map(createQueryObj)
-	}
-
-	return performQuery()
-}
-
-BjorlingLevelProjectionStorage.prototype.save = function(val, cb) {
-	var keyVal = this.getKeyValue(val)
-	//console.log('saving', this._projectionName, this._key, keyVal)
-	this._db.put(keyVal, val, cb)
-}
-
-BjorlingLevelProjectionStorage.prototype.addIndex = function(index, cb) {
-	this._indexes.push(index)
-	this._db.ensureIndex(index)
-	setImmediate(function() {
-		cb && cb()
+	var matchingMaps = indexVals.map(function(indexVal) {
+		var map = maps[indexVal.name]
+		if(!map) return []
+		return map[indexVal.val] || []
 	})
+	var mappedKeys = matchingMaps.shift().reduce(function(res, v) {
+    if(res.indexOf(v) === -1 && matchingMaps.every(function(a) {
+      return a.indexOf(v) !== -1
+    })) res.push(v)
+    return res
+	}, [])
+
+	if(mappedKeys.length === 1) {
+		var mappedKey = mappedKeys[0]
+		return respond(items[mappedKey])
+	}
+
+	respond(null)
 }
 
+BjorlingMemoryProjectionStorage.prototype.getKeyValue = function(obj) {
+	var key = this._key
+		, parts = Array.isArray(key) ? key.map(getVal) : [getVal(key)]
 
-function getArgs(arrayLike) {
-	return Array.prototype.slice.call(arrayLike, 0)
+	function getVal(keyPart) {
+		return obj[keyPart]
+	}
+
+	if(parts.some(isUndefined)) return null
+
+	return parts.join('')
 }
 
-function BjorlingMemoryProjectionStorage(projectionName, key) {
-	if(!projectionName) {
-		throw new errors.ProjectionInitializationError('Bjorling Memory Projection Storage requires a projection name to be initialized.')
-	}
-	if(!key) {
-		throw new errors.ProjectionInitializationError('Bjorling Memory Projection Storage requires a key to be initialized.')
-	}
+BjorlingMemoryProjectionStorage.prototype.save = function(state, cb) {
+	var keyVal = this.getKeyValue(state)
+	this._items[keyVal] = state
+
+	this._addIndexValues(keyVal, state)
+
+	setImmediate(cb)
+}
+
+BjorlingMemoryProjectionStorage.prototype._addIndexValues = function(keyVal, state) {
+	var indexes = this._indexes
+		, indexMaps = this._indexMaps
+	indexes.forEach(function(index) {
+		var indexMap = indexMaps[index]
+			, indexVal = state[index]
+
+		if(!indexVal) return
+
+		function addValueToMap(val) {
+			var map = indexMap[val] = indexMap[val] || []
+			if(map.indexOf(keyVal) === -1) {
+				map.push(keyVal)
+			}
+		}
+
+		if(Array.isArray(indexVal)) {
+			indexVal.forEach(addValueToMap)
+		} else {
+			addValueToMap(indexVal)
+		}
+	})
 }
 
 module.exports = function() {
@@ -159,30 +153,3 @@ module.exports = function() {
 	}
 	return createProjection
 }
-/*
-		, __bjorling = s._db.sublevel('__bjorling')
-		, a = function(projectionName, key, cb) {
-
-				var db = s._db.sublevel(projectionName)
-					, p = new BjorlingLevelProjectionStorage(db, projectionName, key)
-				__bjorling.put(projectionName, {}, function(err) {
-					if(err &&  cb) return cb(err)
-					cb && cb(null, p)
-				})
-				return p
-			}
-	a._db = s._db
-	a._key = s._key
-	a._indexes = s._indexes
-	a.get = function() {
-		return s.get.apply(s, getArgs(arguments))
-	}
-	a.save = function() {
-		return s.save.apply(s, getArgs(arguments))
-	}
-	a.addIndex = function() {
-		return s.addIndex.apply(s, getArgs(arguments))
-	}
-	return a
-}
-*/
