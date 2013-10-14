@@ -148,8 +148,10 @@ module.exports = function() {
 		}
 
 		setImmediate(function() {
-			cb(err, result)
+			cb && cb(err, result)
 		})
+
+		return result
 	}
 	return createProjection
 }

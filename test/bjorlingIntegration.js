@@ -1,21 +1,16 @@
-return
 var storage = require('../')
 	, bjorling = require('bjorling')
-	, dbPath = './testdb/bjorlingIntegration'
 	, eb = require('./eb')
-	, leveldown = require('leveldown')
 
 describe('bjorling storage integration, when retrieving projection state by id', function() {
-	var db
-		, state
+	var state
 
 	before(function(done) {
-		var s = storage(dbPath)
+		var s = storage()
 			, b = bjorling(__filename, {
 					storage: s
 				, key: 'storageId'
 				})
-		db = s._db
 		b.when({
 			'$new': function(e) {
 				return {
@@ -65,13 +60,6 @@ describe('bjorling storage integration, when retrieving projection state by id',
 		})
 	})
 
-	after(function(done) {
-		db.close(function(err) {
-			if(err) done()
-			leveldown.destroy(dbPath, done)
-		})
-	})
-
   it('should have the proper count', function() {
   	state.count.should.equal(3)
   })
@@ -86,16 +74,14 @@ describe('bjorling storage integration, when retrieving projection state by id',
 })
 
 describe('bjorling storage integration, when retrieving projection state by an index', function() {
-	var db
-		, state
+	var state
 
 	before(function(done) {
-		var s = storage(dbPath)
+		var s = storage()
 			, b = bjorling(__filename, {
 					storage: s
 				, key: 'storageId'
 				})
-		db = s._db
 		b.addIndex('lockerId')
 		b.when({
 			'$new': function(e) {
@@ -159,13 +145,6 @@ describe('bjorling storage integration, when retrieving projection state by an i
 					addEvent(e3, getEntry)
 				})
 			})
-		})
-	})
-
-	after(function(done) {
-		db.close(function(err) {
-			if(err) done()
-			leveldown.destroy(dbPath, done)
 		})
 	})
 
