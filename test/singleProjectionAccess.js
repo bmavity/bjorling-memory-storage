@@ -196,18 +196,18 @@ describe('bjorling memory projection storage, when there are multiple indexes an
   	retrievedVal.should.eql(real)
   })
 })
-return
-describe('bjorling memory projection storage, when retrieving state with an event that does not contain a value for the key, but matches an index in an array', function() {
+
+describe('bjorling memory projection storage, when an index is an array and the get parameter does not contain a value for the key but contains a value matching an item in the array index', function() {
 	var db
 		, val1 = {
 				theKey: 'key1'
 			, aVal: ['val 1', 'val 3']
 			}
 		, retrievedVal
-		, projectionStorage
-
 
 	before(function(done) {
+		var projectionStorage
+		
 		function completeGet(val) {
 			retrievedVal = val
 			done()
@@ -221,8 +221,7 @@ describe('bjorling memory projection storage, when retrieving state with an even
 	  	}, eb(done, completeGet))
 		}
 
-		var s = storage(dbPath)
-		db = s._db
+		var s = storage()
 		s('proj 2', 'theKey', eb(done, function(p) {
 			projectionStorage = p
 			projectionStorage.addIndex('aVal', function() {
@@ -231,14 +230,7 @@ describe('bjorling memory projection storage, when retrieving state with an even
 		}))
 	})
 
-	after(function(done) {
-		db.close(function(err) {
-			if(err) done()
-			leveldown.destroy(dbPath, done)
-		})
-	})
-
-  it('should allow retrieval of value by key', function() {
+  it('should retrieve the proper state', function() {
   	retrievedVal.should.eql(val1)
   })
 })
