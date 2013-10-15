@@ -1,4 +1,7 @@
 var errors = require('./errors')
+	, allProjectionStorage = {}
+	, events = require('events')
+	, emitter = new events.EventEmitter()
 
 function isUndefined(val) {
 	return typeof(val) === 'undefined'
@@ -19,6 +22,7 @@ function BjorlingMemoryProjectionStorage(projectionName, key) {
 	}
 
 	this._key = key
+	this._projectionName = projectionName
 	this._items = {}
 	this._indexes = []
 	this._indexMaps = {}
@@ -104,11 +108,18 @@ BjorlingMemoryProjectionStorage.prototype.getKeyValue = function(obj) {
 
 BjorlingMemoryProjectionStorage.prototype.save = function(state, cb) {
 	var keyVal = this.getKeyValue(state)
+		, isNew = !this._items[keyVal]
 	this._items[keyVal] = state
 
 	this._addIndexValues(keyVal, state)
 
 	setImmediate(cb)
+	//BLM: Blah
+	emitter.emit('projection updated', {
+		isNew: isNew
+	, projection: this._projectionName
+	, state: state
+	})
 }
 
 BjorlingMemoryProjectionStorage.prototype._addIndexValues = function(keyVal, state) {
@@ -142,6 +153,7 @@ module.exports = function() {
 			, result
 		try {
 			result = new BjorlingMemoryProjectionStorage(projectionName, key)
+			allProjectionStorage[projectionName] = result
 		}
 		catch(ex) {
 			err = ex
@@ -154,4 +166,12 @@ module.exports = function() {
 		return result
 	}
 	return createProjection
+}
+
+module.exports.getExistingProjection = function(projectionName) {
+	return allProjectionStorage[projectionName]
+}
+
+module.exports.on = function() {
+	emitter.on.apply(emitter, arguments)
 }
