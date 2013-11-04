@@ -106,6 +106,13 @@ BjorlingMemoryProjectionStorage.prototype.getKeyValue = function(obj) {
 	return parts.join('')
 }
 
+BjorlingMemoryProjectionStorage.prototype.reset = function(cb) {
+	this._items = {}
+	this._indexes = {}
+	this._indexMaps = {}
+	setImmediate(cb)
+}
+
 BjorlingMemoryProjectionStorage.prototype.save = function(state, cb) {
 	var keyVal = this.getKeyValue(state)
 		, isNew = !this._items[keyVal]
